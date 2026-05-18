@@ -1,53 +1,77 @@
 import json
 import time
+import urllib.request
+import urllib.error
+from typing import Any
+
 from ytmusicapi import YTMusic
+from ytmusicapi.helpers import get_authorization, sapisid_from_cookie
 
 CHUNK_SIZE = 50
-REQUEST_DELAY = 0.4  # seconds between album fetches to avoid rate limiting
+REQUEST_DELAY = 0.4
+
+# Chiave di accesso pubblica YouTube Music (ignorata quando si usano i cookie)
+_YTM_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-KLET5YdCE"
+_YTM_BASE = "https://music.youtube.com/youtubei/v1/"
 
 
 class YTMusicClient:
     def __init__(self, auth_file: str = "browser.json"):
+        with open(auth_file, encoding="utf-8") as f:
+            self._auth = json.load(f)
+
         self.yt = YTMusic(auth_file)
-        self._patch_session(auth_file)
+        self._override_send_request()
 
-    # Header che non devono mai essere riusati tra richieste diverse:
-    # content-length varia per ogni body, sec-* sono solo per il browser.
-    _STRIP_HEADERS = {
-        "content-length",
-        "content-type",
-        "accept-encoding",
-        "sec-fetch-dest",
-        "sec-fetch-mode",
-        "sec-fetch-site",
-        "sec-ch-ua",
-        "sec-ch-ua-mobile",
-        "sec-ch-ua-platform",
-        "te",
-        "referer",
-        "connection",
-    }
+    # ------------------------------------------------------------------
+    # Core request override
+    # ------------------------------------------------------------------
 
-    def _patch_session(self, auth_file: str) -> None:
+    def _make_headers(self) -> dict[str, str]:
+        """Costruisce gli header per ogni richiesta con hash SAPISIDHASH fresco."""
+        auth = self._auth
+        cookie = auth.get("cookie", "")
+        origin = auth.get("origin") or auth.get("x-origin") or "https://music.youtube.com"
+
+        try:
+            sapisid = sapisid_from_cookie(cookie)
+            fresh_auth = get_authorization(sapisid + " " + origin)
+        except Exception:
+            fresh_auth = auth.get("authorization", "")
+
+        return {
+            "Content-Type": "application/json",
+            "Cookie": cookie,
+            "Authorization": fresh_auth,
+            "X-Goog-AuthUser": auth.get("x-goog-authuser", "0"),
+            "User-Agent": auth.get("user-agent", "Mozilla/5.0"),
+            "Origin": origin,
+            "X-Origin": auth.get("x-origin", origin),
+            "X-YouTube-Client-Name": auth.get("x-youtube-client-name", "67"),
+            "X-YouTube-Client-Version": auth.get("x-youtube-client-version", ""),
+        }
+
+    def _raw_post(self, endpoint: str, body: dict, extra_params: str = "") -> Any:
+        """Esegue una POST all'API interna di YouTube Music."""
+        url = f"{_YTM_BASE}{endpoint}?key={_YTM_KEY}{extra_params}"
+        data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers=self._make_headers())
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+
+    def _override_send_request(self) -> None:
         """
-        ytmusicapi 1.7.x passa tutti gli header di browser.json per ogni
-        richiesta (via _input_dict / base_headers). Se il browser.json
-        contiene content-length dell'originale, YouTube risponde 400 perché
-        il nuovo body ha dimensione diversa. Rimuoviamo gli header problematici.
+        Sostituisce _send_request di ytmusicapi con la nostra implementazione
+        urllib che funziona con i cookie di sessione. Mantiene intatto tutto il
+        parsing delle risposte di ytmusicapi.
         """
-        input_dict = getattr(self.yt, "_input_dict", None)
-        if input_dict is None:
-            return
+        client = self
 
-        stripped = []
-        for h in self._STRIP_HEADERS:
-            if input_dict.pop(h, None) is not None:
-                stripped.append(h)
+        def patched(endpoint: str, body: dict, additionalParams: str = "") -> dict:
+            body.update(client.yt.context)
+            return client._raw_post(endpoint, body, additionalParams)
 
-        if stripped:
-            # Invalida la cache degli header già formati
-            self.yt._headers = None
-            self.yt._base_headers = None
+        self.yt._send_request = patched
 
     # ------------------------------------------------------------------
     # Artist lookup
@@ -57,13 +81,11 @@ class YTMusicClient:
         results = self.yt.search(artist_name, filter="artists", limit=10)
         name_lower = artist_name.lower()
 
-        # Prefer an exact-ish name match
         for r in results:
             candidate = (r.get("artist") or r.get("title") or "").lower()
             if name_lower == candidate or name_lower in candidate or candidate in name_lower:
                 return r["browseId"]
 
-        # Fall back to the first artist result
         for r in results:
             if r.get("resultType") == "artist":
                 return r["browseId"]
@@ -88,7 +110,6 @@ class YTMusicClient:
                 continue
             results = section.get("results", [])
 
-            # Try to load the full list if "see all" params exist
             if section.get("browseId") and section.get("params"):
                 try:
                     all_items = self.yt.get_artist_albums(
@@ -120,8 +141,7 @@ class YTMusicClient:
     # ------------------------------------------------------------------
 
     def create_playlist(self, title: str, description: str = "") -> str:
-        playlist_id = self.yt.create_playlist(title, description)
-        return playlist_id
+        return self.yt.create_playlist(title, description)
 
     def get_playlist_video_ids(self, playlist_id: str) -> set[str]:
         try:
@@ -135,7 +155,7 @@ class YTMusicClient:
         if not video_ids:
             return 0
         added = 0
-        deduped = list(dict.fromkeys(video_ids))  # preserve order, remove dupes
+        deduped = list(dict.fromkeys(video_ids))
         for i in range(0, len(deduped), CHUNK_SIZE):
             chunk = deduped[i : i + CHUNK_SIZE]
             try:
@@ -148,7 +168,7 @@ class YTMusicClient:
         return added
 
     # ------------------------------------------------------------------
-    # Helper to fetch all tracks for a list of releases
+    # Helper
     # ------------------------------------------------------------------
 
     def collect_tracks(
@@ -157,9 +177,6 @@ class YTMusicClient:
         skip_album_ids: set[str],
         skip_video_ids: set[str],
     ) -> tuple[list[str], list[str]]:
-        """
-        Returns (new_video_ids, new_album_browse_ids) for releases not in skip sets.
-        """
         new_video_ids: list[str] = []
         new_album_ids: list[str] = []
 
