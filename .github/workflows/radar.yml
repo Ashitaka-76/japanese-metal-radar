@@ -15,7 +15,7 @@ jobs:
   radar:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # necessario per committare state.json
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -42,6 +42,20 @@ jobs:
           else
             python main.py
           fi
+
+      - name: Invia email se ci sono nuovi brani
+        if: hashFiles('data/email_body.txt') != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "🎸 Japanese Metal Radar — nuovi brani in playlist"
+          to: ${{ secrets.GMAIL_USER }}
+          from: "Japanese Metal Radar <${{ secrets.GMAIL_USER }}>"
+          body: file://data/email_body.txt
 
       - name: Commit aggiornamento stato
         run: |

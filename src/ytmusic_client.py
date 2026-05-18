@@ -127,13 +127,31 @@ class YTMusicClient:
     def get_album_tracks(self, browse_id: str) -> list[str]:
         try:
             album = self.yt.get_album(browse_id)
-            return [
-                t["videoId"]
-                for t in album.get("tracks", [])
-                if t.get("videoId")
-            ]
+            return [t["videoId"] for t in album.get("tracks", []) if t.get("videoId")]
         except Exception as e:
             print(f"    [error] get_album({browse_id}): {e}")
+            return []
+
+    def get_album_track_details(self, browse_id: str) -> list[dict]:
+        """Restituisce [{videoId, title, artist, album}] per un album."""
+        try:
+            album = self.yt.get_album(browse_id)
+            album_title = album.get("title", "")
+            result = []
+            for t in album.get("tracks", []):
+                if not t.get("videoId"):
+                    continue
+                artists = t.get("artists") or album.get("artists") or []
+                artist_str = ", ".join(a["name"] for a in artists if a.get("name"))
+                result.append({
+                    "videoId": t["videoId"],
+                    "title": t.get("title", ""),
+                    "artist": artist_str,
+                    "album": album_title,
+                })
+            return result
+        except Exception as e:
+            print(f"    [error] get_album_track_details({browse_id}): {e}")
             return []
 
     # ------------------------------------------------------------------
@@ -176,9 +194,14 @@ class YTMusicClient:
         releases: list[dict],
         skip_album_ids: set[str],
         skip_video_ids: set[str],
-    ) -> tuple[list[str], list[str]]:
+    ) -> tuple[list[str], list[str], list[dict]]:
+        """
+        Restituisce (new_video_ids, new_album_browse_ids, track_details).
+        track_details è una lista di {videoId, title, artist, album}.
+        """
         new_video_ids: list[str] = []
         new_album_ids: list[str] = []
+        new_details: list[dict] = []
 
         for release in releases:
             album_browse_id = release.get("browseId")
@@ -186,12 +209,13 @@ class YTMusicClient:
                 continue
 
             title = release.get("title", album_browse_id)
-            tracks = self.get_album_tracks(album_browse_id)
-            fresh = [vid for vid in tracks if vid not in skip_video_ids]
+            details = self.get_album_track_details(album_browse_id)
+            fresh = [d for d in details if d["videoId"] not in skip_video_ids]
 
-            print(f"    {title!r}: {len(tracks)} tracks, {len(fresh)} new")
-            new_video_ids.extend(fresh)
+            print(f"    {title!r}: {len(details)} tracks, {len(fresh)} new")
+            new_video_ids.extend(d["videoId"] for d in fresh)
             new_album_ids.append(album_browse_id)
+            new_details.extend(fresh)
             time.sleep(REQUEST_DELAY)
 
-        return new_video_ids, new_album_ids
+        return new_video_ids, new_album_ids, new_details

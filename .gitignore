@@ -1,3 +1,6 @@
+# File temporanei di runtime
+data/email_body.txt
+
 # Credenziali — NON committare mai questi file
 oauth.json
 browser.json

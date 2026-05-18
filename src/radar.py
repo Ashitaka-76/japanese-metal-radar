@@ -1,5 +1,6 @@
 import json
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from src.state import (
@@ -12,6 +13,7 @@ from src.state import (
 from src.ytmusic_client import YTMusicClient
 
 CONFIG_PATH = Path(__file__).parent.parent / "config" / "artists.json"
+EMAIL_BODY_FILE = Path(__file__).parent.parent / "data" / "email_body.txt"
 PLAYLIST_NAME = "Playlist Giappone"
 PLAYLIST_DESCRIPTION = "Brani sincronizzati automaticamente da Japanese Metal Radar"
 
@@ -28,6 +30,32 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
 def save_config(config: dict, path: Path = CONFIG_PATH) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+# ------------------------------------------------------------------
+# Email summary
+# ------------------------------------------------------------------
+
+def _write_email_body(added_by_artist: dict[str, list[dict]], total: int) -> None:
+    """Scrive il corpo dell'email in data/email_body.txt."""
+    lines = [
+        f"Japanese Metal Radar ha aggiunto {total} nuovo/i brano/i alla Playlist Giappone:",
+        "",
+    ]
+    for artist_name, tracks in added_by_artist.items():
+        lines.append(f"{artist_name}:")
+        for t in tracks:
+            album = f" [{t['album']}]" if t.get("album") else ""
+            lines.append(f"  • {t['title']}{album}")
+        lines.append("")
+
+    EMAIL_BODY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    EMAIL_BODY_FILE.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _clear_email_body() -> None:
+    if EMAIL_BODY_FILE.exists():
+        EMAIL_BODY_FILE.unlink()
 
 
 # ------------------------------------------------------------------
@@ -71,6 +99,7 @@ def run_first_time(auth_file: str = "browser.json") -> None:
     print("  Importazione di tutti i brani esistenti...")
     print("=" * 55)
 
+    _clear_email_body()
     client = YTMusicClient(auth_file)
     state = load_state()
     config = load_config()
@@ -94,7 +123,7 @@ def run_first_time(auth_file: str = "browser.json") -> None:
         print(f"  Release trovate: {len(releases)}")
 
         known_albums = set(get_artist_state(state, name).get("known_album_ids", []))
-        new_vids, new_album_ids = client.collect_tracks(releases, known_albums, existing_ids)
+        new_vids, new_album_ids, _ = client.collect_tracks(releases, known_albums, existing_ids)
 
         if new_vids:
             added = client.add_tracks(playlist_id, new_vids)
@@ -121,6 +150,7 @@ def run_update(auth_file: str = "browser.json") -> None:
     print("  Japanese Metal Radar — AGGIORNAMENTO")
     print("=" * 55)
 
+    _clear_email_body()
     client = YTMusicClient(auth_file)
     state = load_state()
     config = load_config()
@@ -134,6 +164,7 @@ def run_update(auth_file: str = "browser.json") -> None:
     print(f"Brani in playlist: {len(existing_ids)}\n")
 
     total_added = 0
+    added_by_artist: dict[str, list[dict]] = defaultdict(list)
 
     for artist in config["artists"]:
         name = artist["name"]
@@ -157,12 +188,15 @@ def run_update(auth_file: str = "browser.json") -> None:
             continue
 
         print(f"  Nuove uscite: {len(new_releases)}")
-        new_vids, new_album_ids = client.collect_tracks(new_releases, known_albums, existing_ids)
+        new_vids, new_album_ids, details = client.collect_tracks(
+            new_releases, known_albums, existing_ids
+        )
 
         if new_vids:
             added = client.add_tracks(playlist_id, new_vids)
             existing_ids.update(new_vids)
             total_added += added
+            added_by_artist[name].extend(details)
             print(f"  → Aggiunti {added} brani")
 
         record_album_ids(state, name, new_album_ids)
@@ -172,6 +206,10 @@ def run_update(auth_file: str = "browser.json") -> None:
 
     mark_last_run(state)
     save_state(state)
+
+    if total_added > 0:
+        _write_email_body(added_by_artist, total_added)
+
     print("=" * 55)
     print(f"  Completato! {total_added} nuovi brani aggiunti.")
     print("=" * 55)
