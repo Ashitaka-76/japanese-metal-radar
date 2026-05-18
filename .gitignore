@@ -1,0 +1,17 @@
+# Credenziali — NON committare mai questi file
+oauth.json
+browser.json
+*.json.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp

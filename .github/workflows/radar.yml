@@ -1,0 +1,52 @@
+name: Japanese Metal Radar
+
+on:
+  schedule:
+    # Ogni giorno alle 07:00 UTC (09:00 ora italiana)
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      first_run:
+        description: "Primo avvio — importa tutti i brani esistenti"
+        type: boolean
+        default: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # necessario per committare state.json
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Scrivi credenziali OAuth
+        run: echo '${{ secrets.YTMUSIC_OAUTH }}' > oauth.json
+
+      - name: Esegui Radar
+        run: |
+          if [ "${{ github.event.inputs.first_run }}" = "true" ]; then
+            python main.py --first-run
+          else
+            python main.py
+          fi
+
+      - name: Commit aggiornamento stato
+        run: |
+          git config user.name "japanese-metal-radar[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json config/artists.json
+          git diff --cached --quiet || git commit -m "chore: aggiorna stato radar [skip ci]"
+          git push
