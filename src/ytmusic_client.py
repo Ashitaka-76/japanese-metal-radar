@@ -11,34 +11,43 @@ class YTMusicClient:
         self.yt = YTMusic(auth_file)
         self._patch_session(auth_file)
 
+    # Header che non devono mai essere riusati tra richieste diverse:
+    # content-length varia per ogni body, sec-* sono solo per il browser.
+    _STRIP_HEADERS = {
+        "content-length",
+        "content-type",
+        "accept-encoding",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "te",
+        "referer",
+        "connection",
+    }
+
     def _patch_session(self, auth_file: str) -> None:
         """
-        ytmusicapi 1.7.x non carica automaticamente gli header da browser.json
-        nella sessione requests. Li forziamo manualmente.
+        ytmusicapi 1.7.x passa tutti gli header di browser.json per ogni
+        richiesta (via _input_dict / base_headers). Se il browser.json
+        contiene content-length dell'originale, YouTube risponde 400 perché
+        il nuovo body ha dimensione diversa. Rimuoviamo gli header problematici.
         """
-        session = getattr(self.yt, "_session", None)
-        if session is None:
+        input_dict = getattr(self.yt, "_input_dict", None)
+        if input_dict is None:
             return
 
-        # Se la sessione ha già un cookie valido non tocchiamo nulla
-        if session.headers.get("cookie") or session.headers.get("Cookie"):
-            return
+        stripped = []
+        for h in self._STRIP_HEADERS:
+            if input_dict.pop(h, None) is not None:
+                stripped.append(h)
 
-        try:
-            with open(auth_file, encoding="utf-8") as f:
-                headers = json.load(f)
-        except Exception:
-            return
-
-        # Non aggiungere header OAuth (access_token, token_type…)
-        if "access_token" in headers:
-            return
-
-        session.headers.update(headers)
-        # Rimuove accept-encoding: evita che requests riceva risposte
-        # con encoding non supportato (es. brotli) che risultano vuote.
-        session.headers.pop("accept-encoding", None)
-        session.headers.pop("Accept-Encoding", None)
+        if stripped:
+            # Invalida la cache degli header già formati
+            self.yt._headers = None
+            self.yt._base_headers = None
 
     # ------------------------------------------------------------------
     # Artist lookup

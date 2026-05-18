@@ -127,6 +127,17 @@ def main() -> None:
     except Exception as e:
         print(f"  [ERRORE] {e}")
 
+    # Mostra header problematici presenti nel browser.json
+    PROBLEMATIC = {"content-length", "content-type", "accept-encoding",
+                   "sec-fetch-dest", "sec-fetch-mode", "sec-fetch-site",
+                   "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                   "te", "referer", "connection"}
+    found_prob = [k for k in auth if k.lower() in PROBLEMATIC]
+    if found_prob:
+        print(f"  [!!] Header problematici trovati: {found_prob}")
+        print("       Questi causano HTTP 400 se passati invariati da ytmusicapi.")
+    else:
+        print("  Nessun header problematico rilevato.")
     print()
 
     # Test ytmusicapi
@@ -198,12 +209,26 @@ def main() -> None:
             sys.exit(1)
 
     print()
+    print("Test via YTMusicClient (con patch)...")
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from src.ytmusic_client import YTMusicClient
+        client = YTMusicClient(AUTH_FILE)
+        results = client.yt.search("BABYMETAL", filter="artists", limit=1)
+        if results:
+            name = results[0].get("artist") or results[0].get("title")
+            print(f"  [OK] Ricerca funziona — trovato: {name}")
+        else:
+            print("  [OK] Ricerca OK (0 risultati)")
+    except Exception as e:
+        print(f"  [ERRORE] YTMusicClient: {e}")
+        sys.exit(1)
+
+    print()
     print("Test scrittura (crea/cancella playlist temporanea)...")
     try:
-        from ytmusicapi import YTMusic
-        yt = YTMusic(AUTH_FILE)
-        tid = yt.create_playlist("__radar_diag__", "diag")
-        yt.delete_playlist(tid)
+        tid = client.yt.create_playlist("__radar_diag__", "diag")
+        client.yt.delete_playlist(tid)
         print("  [OK] Scrittura funziona")
     except Exception as e:
         print(f"  [ERRORE] Scrittura: {e}")
