@@ -1,5 +1,99 @@
 {
-  "playlist_id": null,
-  "artists": {},
-  "last_run": null
+  "playlist_id": "PLYVI8YWz02b635Xy8uulHAu2rOYbrtnWs",
+  "artists": {
+    "BABYMETAL": {
+      "browse_id": "UCCbekeZYV4LhXTxJYrHf9lg",
+      "known_album_ids": [
+        "MPREb_OMYHG8Wjebp",
+        "MPREb_Y8m8eaAXCjx",
+        "MPREb_ZWKUATq1yxa",
+        "MPREb_ffWf85RRX0k",
+        "MPREb_mdTPlkv013t",
+        "MPREb_nN4QYVOt22y",
+        "MPREb_urPFmoEBA5u",
+        "MPREb_xfpPBcet0zr",
+        "MPREb_ze9M0rtOVCv"
+      ]
+    },
+    "BAND-MAID": {
+      "browse_id": "UCM35rMMfPj1wj1nwe-DxSAg",
+      "known_album_ids": [
+        "MPREb_GO9izjN7SW6",
+        "MPREb_JckhtFHkQBL",
+        "MPREb_NIUQx4GVbhk",
+        "MPREb_Rx6NOLCGK8R",
+        "MPREb_UZckr2uwvyt",
+        "MPREb_Xz8DfPhlmsJ",
+        "MPREb_aSaoWX9WOIo",
+        "MPREb_jKkRUZ8o6F9",
+        "MPREb_oxpJNthMS5W",
+        "MPREb_r5yYlz57pz6",
+        "MPREb_rBNzw1XNdPd",
+        "MPREb_u0H4qhbwLe0"
+      ]
+    },
+    "Wagakki Band": {
+      "browse_id": "UCDFHGuRyTACdcJHYtIPAX5Q",
+      "known_album_ids": [
+        "MPREb_5dMsYPmeuxz",
+        "MPREb_FCkdrDLJPOw",
+        "MPREb_Fi69sK9Bu6x",
+        "MPREb_Qz6z3F6GgLf",
+        "MPREb_X0D2hYEKeJL",
+        "MPREb_cjEEAFhjjof",
+        "MPREb_gq0y0dyvrmh",
+        "MPREb_lbEe1oahlrX",
+        "MPREb_q3lHeK1K4rp",
+        "MPREb_t0CmVl657Np"
+      ]
+    },
+    "Ado": {
+      "browse_id": "UC5DHwv9N4OQ9AWtKr8YSefw",
+      "known_album_ids": [
+        "MPREb_1afh7aepuz4",
+        "MPREb_5QgVEXrDpOw",
+        "MPREb_8yr9t6EWsxx",
+        "MPREb_A5CNByaG0r6",
+        "MPREb_FaaPF0IW1Go",
+        "MPREb_GF3CEXdLifx",
+        "MPREb_Yu6lK7C4cC1"
+      ]
+    },
+    "Maximum the Hormone": {
+      "browse_id": "UC10viXnr5P30UrEb36Y984g",
+      "known_album_ids": [
+        "MPREb_3NHJkAA8pBZ",
+        "MPREb_EYuFKNNPUt3",
+        "MPREb_d3HCAlrCz12",
+        "MPREb_sIzi9fF3mCt",
+        "MPREb_zsxIRMyOWol"
+      ]
+    },
+    "NEMOPHILA": {
+      "browse_id": "UCMXAdfuVtiZ852N3rtqwe-A",
+      "known_album_ids": [
+        "MPREb_2j7DMggfHw2",
+        "MPREb_BkvdCuRDGCh",
+        "MPREb_Ol0fA2YikNl",
+        "MPREb_PgW8XLR63nH",
+        "MPREb_XVoIonuRB4Y",
+        "MPREb_gSPfvcpYSFx"
+      ]
+    },
+    "Haku": {
+      "browse_id": "UCmN_Dkp-Yx2qGIOEXs11mUw",
+      "known_album_ids": [
+        "MPREb_7oR6ke4xkLK",
+        "MPREb_Y30mStyAmm0"
+      ]
+    },
+    "HAGANE": {
+      "browse_id": "UCyXposVUXnqOlvTMQUvI9fg",
+      "known_album_ids": [
+        "MPREb_62P6kukY7xl",
+        "MPREb_toEk8ONiElQ"
+      ]
+    }
+  },
+  "last_run": "2026-05-18T10:28:49.827851+00:00"
 }
