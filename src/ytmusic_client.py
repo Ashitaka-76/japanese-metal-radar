@@ -1,3 +1,4 @@
+import json
 import time
 from ytmusicapi import YTMusic
 
@@ -8,12 +9,36 @@ REQUEST_DELAY = 0.4  # seconds between album fetches to avoid rate limiting
 class YTMusicClient:
     def __init__(self, auth_file: str = "browser.json"):
         self.yt = YTMusic(auth_file)
-        # Rimuove accept-encoding dalla sessione: evita che requests richieda
-        # brotli/gzip e riceva una risposta che non sa decomprimere.
+        self._patch_session(auth_file)
+
+    def _patch_session(self, auth_file: str) -> None:
+        """
+        ytmusicapi 1.7.x non carica automaticamente gli header da browser.json
+        nella sessione requests. Li forziamo manualmente.
+        """
         session = getattr(self.yt, "_session", None)
-        if session is not None:
-            session.headers.pop("accept-encoding", None)
-            session.headers.pop("Accept-Encoding", None)
+        if session is None:
+            return
+
+        # Se la sessione ha già un cookie valido non tocchiamo nulla
+        if session.headers.get("cookie") or session.headers.get("Cookie"):
+            return
+
+        try:
+            with open(auth_file, encoding="utf-8") as f:
+                headers = json.load(f)
+        except Exception:
+            return
+
+        # Non aggiungere header OAuth (access_token, token_type…)
+        if "access_token" in headers:
+            return
+
+        session.headers.update(headers)
+        # Rimuove accept-encoding: evita che requests riceva risposte
+        # con encoding non supportato (es. brotli) che risultano vuote.
+        session.headers.pop("accept-encoding", None)
+        session.headers.pop("Accept-Encoding", None)
 
     # ------------------------------------------------------------------
     # Artist lookup
