@@ -130,7 +130,7 @@ def main() -> None:
     print()
 
     # Test ytmusicapi
-    print("Test con ytmusicapi...")
+    print("Test con ytmusicapi (sessione originale)...")
     try:
         import ytmusicapi
         print(f"  ytmusicapi versione: {ytmusicapi.__version__}")
@@ -139,15 +139,30 @@ def main() -> None:
         results = yt.search("BABYMETAL", filter="artists", limit=1)
         if results:
             name = results[0].get("artist") or results[0].get("title")
-            print(f"  [OK] Ricerca funziona — trovato: {name}")
+            print(f"  [OK] Funziona — trovato: {name}")
         else:
-            print("  [OK] Ricerca OK (0 risultati)")
+            print("  [OK] OK (0 risultati)")
     except Exception as e:
-        print(f"  [ERRORE] ytmusicapi: {e}")
-        print()
-        print("  Se il test HTTP diretto ha funzionato ma ytmusicapi no,")
-        print("  prova: pip install ytmusicapi==1.7.0")
-        sys.exit(1)
+        print(f"  [!!] Fallito ({e}) — provo a rimuovere accept-encoding dalla sessione...")
+        try:
+            from ytmusicapi import YTMusic
+            yt2 = YTMusic(AUTH_FILE)
+            sess = getattr(yt2, "_session", None)
+            if sess:
+                removed = sess.headers.pop("accept-encoding", None) or sess.headers.pop("Accept-Encoding", None)
+                print(f"  accept-encoding rimosso: {removed!r}")
+            results = yt2.search("BABYMETAL", filter="artists", limit=1)
+            if results:
+                name = results[0].get("artist") or results[0].get("title")
+                print(f"  [OK] Funziona dopo patch — trovato: {name}")
+                print("  Patch applicata: accept-encoding rimosso dalla sessione.")
+            else:
+                print("  [OK] Funziona dopo patch (0 risultati)")
+        except Exception as e2:
+            print(f"  [ERRORE] Anche dopo patch fallisce: {e2}")
+            print()
+            print("  Causa sconosciuta. Mostra questo output per assistenza.")
+            sys.exit(1)
 
     print()
     print("Test scrittura (crea/cancella playlist temporanea)...")

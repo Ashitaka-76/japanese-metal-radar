@@ -8,6 +8,12 @@ REQUEST_DELAY = 0.4  # seconds between album fetches to avoid rate limiting
 class YTMusicClient:
     def __init__(self, auth_file: str = "browser.json"):
         self.yt = YTMusic(auth_file)
+        # Rimuove accept-encoding dalla sessione: evita che requests richieda
+        # brotli/gzip e riceva una risposta che non sa decomprimere.
+        session = getattr(self.yt, "_session", None)
+        if session is not None:
+            session.headers.pop("accept-encoding", None)
+            session.headers.pop("Accept-Encoding", None)
 
     # ------------------------------------------------------------------
     # Artist lookup
