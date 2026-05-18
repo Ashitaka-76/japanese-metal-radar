@@ -1,6 +1,7 @@
 # Credenziali — NON committare mai questi file
 oauth.json
 browser.json
+headers.txt
 *.json.bak
 *.json.bak
 

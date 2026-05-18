@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Setup autenticazione per YouTube Music tramite headers del browser.
-Esegui questo script UNA SOLA VOLTA in locale. Non serve Google Cloud.
+Setup autenticazione YouTube Music.
 
-IMPORTANTE: devi copiare gli header da una richiesta POST all'API di YouTube
-Music, non da una richiesta normale di pagina.
+Salva gli header in un file di testo e poi esegui questo script.
+Vedi le istruzioni stampate a schermo.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,122 +19,134 @@ except ImportError:
     sys.exit(1)
 
 AUTH_FILE = "browser.json"
+HEADERS_FILE = "headers.txt"
 
-GUIDE = """
-Segui questi passi ESATTI nel browser:
+GUIDE = f"""
+Segui questi passi:
 
-  1. Apri https://music.youtube.com e assicurati di essere LOGGATO
-     (deve comparire il tuo profilo in alto a destra)
+  1. Apri https://music.youtube.com — assicurati di essere LOGGATO
 
-  2. Premi F12 per aprire gli Strumenti sviluppatore
+  2. Premi F12 → scheda "Network" → attiva filtro "Fetch/XHR"
 
-  3. Clicca sulla scheda "Network" (o "Rete")
-     Attiva il filtro "Fetch/XHR" (pulsante nella barra dei filtri)
+  3. Premi F5 per ricaricare la pagina
 
-  4. Premi F5 per ricaricare la pagina
+  4. Nell'elenco cerca una riga con nome "browse" e metodo POST
+     (oppure "next" o "search" — qualsiasi POST verso music.youtube.com)
 
-  5. Nell'elenco delle richieste cerca una che si chiama "browse"
-     oppure "next" oppure "home" — deve essere una richiesta POST
+  5. Clicca su quella riga → pannello destro → "Headers"
+     → sezione "Request Headers"
 
-  6. Clicca su quella richiesta
+  6. Fai click destro sugli header → "Copy" (o seleziona tutto con Ctrl+A
+     e copia con Ctrl+C)
 
-  7. Nel pannello di destra vai su "Headers" → sezione "Request Headers"
+  7. Apri il Blocco Note (o qualsiasi editor di testo)
+     Incolla il testo e salvalo come:
+        {Path(HEADERS_FILE).absolute()}
 
-  8. SELEZIONA E COPIA TUTTO il testo degli header
-     (deve contenere righe come: cookie: ..., authorization: ...,
-      x-goog-authuser: ..., x-youtube-client-name: ...)
-
-  Poi torna qui e incolla (Ctrl+V).
-  Quando hai finito scrivi "fine" su una riga vuota e premi Invio.
+  8. Torna qui e premi INVIO per continuare.
 """
+
+
+def load_headers_from_file(path: str) -> str:
+    p = Path(path)
+    if not p.exists():
+        print(f"File non trovato: {p.absolute()}")
+        print(f"Crea il file {path} con gli header copiati dal browser.")
+        sys.exit(1)
+    return p.read_text(encoding="utf-8", errors="replace")
+
+
+def sanitize_headers(raw: str) -> str:
+    """Rimuove pseudo-header HTTP/2 (:authority, :method, ecc.) e righe vuote."""
+    lines = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith(":"):  # pseudo-header HTTP/2
+            continue
+        lines.append(stripped)
+    return "\n".join(lines)
+
+
+def check_required_fields(raw: str) -> list[str]:
+    missing = []
+    lower = raw.lower()
+    if "cookie" not in lower:
+        missing.append("cookie")
+    if "authorization" not in lower and "x-goog-authuser" not in lower:
+        missing.append("authorization / x-goog-authuser")
+    return missing
 
 
 def main() -> None:
     print("=" * 60)
-    print("  YouTube Music — Setup autenticazione (browser headers)")
+    print("  YouTube Music — Setup autenticazione")
     print("=" * 60)
     print(GUIDE)
 
-    print("Incolla gli header qui sotto, poi scrivi 'fine' su una riga vuota:")
-    print("─" * 60)
+    input("Premi INVIO quando hai salvato il file headers.txt...")
+    print()
 
-    lines = []
-    while True:
-        try:
-            line = input()
-        except EOFError:
-            break
-        if line.strip().lower() == "fine":
-            break
-        lines.append(line)
+    raw = load_headers_from_file(HEADERS_FILE)
+    raw = sanitize_headers(raw)
 
-    if not lines:
-        print("Nessun header inserito. Uscita.")
+    missing = check_required_fields(raw)
+    if missing:
+        print(f"ATTENZIONE: gli header non contengono: {', '.join(missing)}")
+        print("Assicurati di copiare da una richiesta POST autenticata (filtro Fetch/XHR).")
+        print("Gli header devono includere 'cookie:' e 'authorization:'.")
         sys.exit(1)
 
-    headers_raw = "\n".join(lines)
-
-    # Controlla che gli header contengano almeno cookie o authorization
-    headers_lower = headers_raw.lower()
-    if "cookie" not in headers_lower and "authorization" not in headers_lower:
-        print()
-        print("ATTENZIONE: Gli header incollati non contengono 'cookie' né 'authorization'.")
-        print("Assicurati di aver copiato gli header da una richiesta POST autenticata.")
-        print("Vedi le istruzioni sopra (punto 5: cerca 'browse' con metodo POST).")
-        sys.exit(1)
+    print(f"Header caricati ({raw.count(chr(10)) + 1} righe). Configuro ytmusicapi...")
 
     try:
-        ytmusicapi.setup(filepath=AUTH_FILE, headers_raw=headers_raw)
+        ytmusicapi.setup(filepath=AUTH_FILE, headers_raw=raw)
     except Exception as e:
-        print(f"\nErrore durante il setup: {e}")
+        print(f"Errore setup: {e}")
         sys.exit(1)
 
-    print(f"\nCredenziali salvate in: {AUTH_FILE}")
+    print(f"Credenziali salvate in: {AUTH_FILE}")
     print()
 
     # Test lettura
-    print("Test connessione (ricerca)...")
+    print("Test lettura...")
     try:
         yt = YTMusic(AUTH_FILE)
         results = yt.search("BABYMETAL", filter="artists", limit=1)
-        if results:
-            print(f"  OK — trovato: {results[0].get('artist') or results[0].get('title')}")
-        else:
-            print("  OK (nessun risultato, ma la connessione funziona)")
+        name = results[0].get("artist") or results[0].get("title") if results else "?"
+        print(f"  OK — trovato: {name}")
     except Exception as e:
-        print(f"  ERRORE lettura: {e}")
-        print("  Riprova il setup con header aggiornati.")
+        print(f"  ERRORE: {e}")
+        print("  Gli header potrebbero essere scaduti o non validi.")
         sys.exit(1)
 
-    # Test scrittura (crea e cancella subito una playlist di prova)
-    print("Test permessi scrittura (crea playlist di prova)...")
+    # Test scrittura
+    print("Test scrittura (crea/cancella playlist temporanea)...")
     try:
-        test_id = yt.create_playlist("__radar_test__", "test")
-        yt.delete_playlist(test_id)
+        tid = yt.create_playlist("__radar_test__", "test")
+        yt.delete_playlist(tid)
         print("  OK — permessi di scrittura confermati")
     except Exception as e:
         print(f"  ERRORE scrittura: {e}")
-        print()
-        print("  Gli header funzionano per la lettura ma non per la scrittura.")
-        print("  Assicurati di copiare gli header da una richiesta POST (es. 'browse')")
-        print("  e non da una richiesta GET normale.")
+        print("  Prova a copiare gli header da un'altra richiesta POST.")
         sys.exit(1)
 
     print()
-    print("─" * 60)
-    print("Setup completato con successo!")
+    print("=" * 60)
+    print("  Setup completato con successo!")
+    print("=" * 60)
     print()
-    print("Per usare questo progetto su GitHub Actions:")
-    print("  1. Repo → Settings → Secrets → Actions → New secret")
-    print("  2. Nome: YTMUSIC_AUTH")
-    print(f"  3. Valore: il contenuto completo di {AUTH_FILE} (vedi sotto)")
+    print("Per GitHub Actions:")
+    print("  Repo → Settings → Secrets → Actions → New secret")
+    print("  Nome: YTMUSIC_AUTH")
+    print(f"  Valore: contenuto completo di {AUTH_FILE}")
     print()
 
     try:
         with open(AUTH_FILE, "r") as f:
             content = json.load(f)
-        print(f"Contenuto di {AUTH_FILE}:")
-        print("─" * 60)
+        print(f"--- Contenuto di {AUTH_FILE} ---")
         print(json.dumps(content, indent=2))
     except Exception:
         print(f"Leggi manualmente: {Path(AUTH_FILE).absolute()}")
