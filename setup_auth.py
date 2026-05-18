@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 try:
-    from ytmusicapi import YTMusic
+    import ytmusicapi
 except ImportError:
     print("Installa prima le dipendenze: pip install -r requirements.txt")
     sys.exit(1)
@@ -28,7 +28,7 @@ def main() -> None:
     oauth_path = "oauth.json"
 
     try:
-        YTMusic.setup_oauth(filepath=oauth_path, open_browser=True)
+        ytmusicapi.setup_oauth(filepath=oauth_path, open_browser=True)
     except Exception as e:
         print(f"Errore durante il setup OAuth: {e}")
         sys.exit(1)
