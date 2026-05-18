@@ -144,24 +144,57 @@ def main() -> None:
             print("  [OK] OK (0 risultati)")
     except Exception as e:
         print(f"  [!!] Fallito ({e}) — provo a rimuovere accept-encoding dalla sessione...")
+        # Intercetta la chiamata requests per vedere URL, header e risposta raw
+        print()
+        print("  Intercettazione richiesta ytmusicapi...")
         try:
             from ytmusicapi import YTMusic
             yt2 = YTMusic(AUTH_FILE)
             sess = getattr(yt2, "_session", None)
+            captured = {}
+
             if sess:
-                removed = sess.headers.pop("accept-encoding", None) or sess.headers.pop("Accept-Encoding", None)
-                print(f"  accept-encoding rimosso: {removed!r}")
-            results = yt2.search("BABYMETAL", filter="artists", limit=1)
-            if results:
-                name = results[0].get("artist") or results[0].get("title")
-                print(f"  [OK] Funziona dopo patch — trovato: {name}")
-                print("  Patch applicata: accept-encoding rimosso dalla sessione.")
-            else:
-                print("  [OK] Funziona dopo patch (0 risultati)")
+                original_post = sess.post
+
+                def intercepted_post(url, **kwargs):
+                    resp = original_post(url, **kwargs)
+                    captured["url"] = url
+                    captured["status"] = resp.status_code
+                    captured["content_len"] = len(resp.content)
+                    captured["text_len"] = len(resp.text)
+                    captured["encoding"] = resp.encoding
+                    captured["content_encoding"] = resp.headers.get("Content-Encoding", "none")
+                    captured["content_type"] = resp.headers.get("Content-Type", "?")
+                    # Mostra i primi 200 byte raw
+                    captured["raw_preview"] = resp.content[:200]
+                    # Mostra gli header della sessione al momento della chiamata
+                    captured["session_headers"] = dict(sess.headers)
+                    return resp
+
+                sess.post = intercepted_post
+
+            try:
+                results = yt2.search("BABYMETAL", filter="artists", limit=1)
+            except Exception:
+                pass
+
+            if captured:
+                print(f"  URL chiamato: {captured.get('url', '?')}")
+                print(f"  HTTP status: {captured.get('status', '?')}")
+                print(f"  Content-Encoding: {captured.get('content_encoding', '?')}")
+                print(f"  Content-Type: {captured.get('content_type', '?')}")
+                print(f"  response.content len: {captured.get('content_len', '?')} bytes")
+                print(f"  response.text len:    {captured.get('text_len', '?')} chars")
+                print(f"  response.encoding:    {captured.get('encoding', '?')}")
+                raw = captured.get("raw_preview", b"")
+                print(f"  Primi 200 byte raw: {raw[:200]}")
+                print()
+                print("  Header di sessione inviati da ytmusicapi:")
+                for k, v in captured.get("session_headers", {}).items():
+                    preview = v[:80] + "..." if len(v) > 80 else v
+                    print(f"    {k}: {preview}")
         except Exception as e2:
-            print(f"  [ERRORE] Anche dopo patch fallisce: {e2}")
-            print()
-            print("  Causa sconosciuta. Mostra questo output per assistenza.")
+            print(f"  [ERRORE] intercettazione fallita: {e2}")
             sys.exit(1)
 
     print()
