@@ -34,7 +34,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--auth",
-        default="oauth.json",
+        default="browser.json",
         metavar="FILE",
         help="Percorso al file OAuth di ytmusicapi (default: oauth.json)",
     )

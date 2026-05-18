@@ -2,6 +2,7 @@
 oauth.json
 browser.json
 *.json.bak
+*.json.bak
 
 # Python
 __pycache__/

@@ -32,8 +32,8 @@ jobs:
       - name: Installa dipendenze
         run: pip install -r requirements.txt
 
-      - name: Scrivi credenziali OAuth
-        run: echo '${{ secrets.YTMUSIC_OAUTH }}' > oauth.json
+      - name: Scrivi credenziali autenticazione
+        run: echo '${{ secrets.YTMUSIC_AUTH }}' > browser.json
 
       - name: Esegui Radar
         run: |

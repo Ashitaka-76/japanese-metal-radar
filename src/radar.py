@@ -65,7 +65,7 @@ def _resolve_browse_id(
 # Public commands
 # ------------------------------------------------------------------
 
-def run_first_time(auth_file: str = "oauth.json") -> None:
+def run_first_time(auth_file: str = "browser.json") -> None:
     print("=" * 55)
     print("  Japanese Metal Radar — PRIMO AVVIO")
     print("  Importazione di tutti i brani esistenti...")
@@ -116,7 +116,7 @@ def run_first_time(auth_file: str = "oauth.json") -> None:
     print("=" * 55)
 
 
-def run_update(auth_file: str = "oauth.json") -> None:
+def run_update(auth_file: str = "browser.json") -> None:
     print("=" * 55)
     print("  Japanese Metal Radar — AGGIORNAMENTO")
     print("=" * 55)

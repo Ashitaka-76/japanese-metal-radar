@@ -6,7 +6,7 @@ REQUEST_DELAY = 0.4  # seconds between album fetches to avoid rate limiting
 
 
 class YTMusicClient:
-    def __init__(self, auth_file: str = "oauth.json"):
+    def __init__(self, auth_file: str = "browser.json"):
         self.yt = YTMusic(auth_file)
 
     # ------------------------------------------------------------------
