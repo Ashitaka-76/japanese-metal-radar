@@ -287,12 +287,16 @@
     "HAGANE": {
       "browse_id": "UCyXposVUXnqOlvTMQUvI9fg",
       "known_album_ids": [
+        "MPREb_07bzzkD3KR1",
         "MPREb_3RwzQXOoten",
         "MPREb_62P6kukY7xl",
         "MPREb_CiCjRahzkkR",
+        "MPREb_Cxnne6o7fMk",
         "MPREb_EWncsYgeD7L",
         "MPREb_Jsi0gPvKeVF",
         "MPREb_KsD1YKjjB4E",
+        "MPREb_M6RNRPUYpyu",
+        "MPREb_O5e4pH3306G",
         "MPREb_PKa9u9u5dbH",
         "MPREb_WHKLXRx0kAF",
         "MPREb_d4MGq7uYfla",
@@ -304,5 +308,5 @@
       ]
     }
   },
-  "last_run": "2026-10-09T14:15:26.928788+00:00"
+  "last_run": "2026-10-10T13:27:28.931138+00:00"
 }
